@@ -1,4 +1,4 @@
-OrvixAggregator
+# OrvixAggregator
 
 BNB Chain AMM V2 Traversal Router
 
@@ -8,416 +8,321 @@ The contract is designed for integration by wallets, decentralized applications 
 
 ---
 
-Deployed Contracts
+## Banner
 
-Network| Contract Address
-BNB Smart Chain Mainnet| "0x524a8557005ADdf838c3e267ce43b9B7EBfcCfc7"
-BNB Smart Chain Testnet| "0xA4Bf191D53B880cA49F1ceD0C0C840378bdDef42"
+```
 
----
++------------------------------------------------------------------+
 
-Supported Mainnet AMM Factories
+|                                                                  |
 
-The Mainnet deployment is designed to traverse multiple AMM V2-compatible liquidity sources.
+|             O R V I X   A G G R E G A T O R                      |
 
-AMM| Factory Address
-PancakeSwap V2| "0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73"
-BiSwap| "0x858E3312ed3A876947EA49d572A7C42DE08af7EE"
-ApeSwap| "0x0841BD0B734E4F5853f0dD8d7Ea041c241fb0Da6"
-SushiSwap| "0xc35DADB65012eC5796536bD9864eD8773aBc74C4"
-MDEX| "0x3CD1C46068dAEa5Ebb0d3f55F6915B10648062B8"
-BabySwap| "0x86407bEa2078ea5F5EB5A52B2caA963bC1F889DA"
-BakerySwap| "0x01bF7C66c6BD861915CdaaE475042d3c4BaE16A7"
+|                                                                  |
 
-Factory addresses are configured through the contract's factory whitelist and are used as liquidity sources during route discovery.
+|           BNB Chain · AMM V2 · Multi-Factory Router             |
+
+|                                                                  |
++------------------------------------------------------------------+
+
+```
 
 ---
 
-Architecture
+## Deployed Contracts
 
-                         ┌──────────────────────┐
-                         │     OrvixAggregator  │
-                         └──────────┬───────────┘
-                                    │
-                     ┌──────────────┴──────────────┐
-                     │       Route Discovery       │
-                     └──────────────┬──────────────┘
-                                    │
-       ┌────────────┬───────────────┼───────────────┬────────────┐
-       │            │               │               │            │
-       ▼            ▼               ▼               ▼            ▼
-  Pancake V2     BiSwap         ApeSwap        SushiSwap      MDEX
-       │            │               │               │            │
-       └────────────┴───────────────┼───────────────┴────────────┘
-                                    │
-                         ┌──────────▼──────────┐
-                         │  Liquidity Scoring  │
-                         │  + Price Impact     │
-                         │  + Fee Calculation  │
-                         └──────────┬──────────┘
-                                    │
-                         ┌──────────▼──────────┐
-                         │   Best Route        │
-                         │   Determination     │
-                         └──────────┬──────────┘
-                                    │
-                         ┌──────────▼──────────┐
-                         │  swapExactInput     │
-                         └─────────────────────┘
-
-The same routing architecture can evaluate liquidity across the configured factory whitelist rather than relying on a single AMM.
+| Network | Contract |
+| :--- | :--- |
+| BNB Smart Chain Mainnet | "0x524a8557005ADdf838c3e267ce43b9B7EBfcCfc7" |
+| BNB Smart Chain Testnet | "0xA4Bf191D53B880cA49F1ceD0C0C840378bdDef42" |
 
 ---
 
-Key Features
+## Live Swap Test Interface
 
-Multi-Factory Routing
+A lightweight swap interface is available for testing the deployed "OrvixAggregator" contract on BNB Chain.
 
-Aggregates liquidity discovery across multiple whitelisted AMM V2 factories, including:
+**Live Test Interface:**  
+https://orvix-frontend.vercel.app/
 
-- PancakeSwap V2
-- BiSwap
-- ApeSwap
-- SushiSwap
-- MDEX
-- BabySwap
-- BakerySwap
+The interface is intended primarily for aggregator contract testing and integration validation.
 
-Factory support is controlled through the contract's whitelist.
-
-Per-Factory Fee Support
-
-Each factory can have its own configured fee parameters.
-
-The router uses the configured fee numerator and denominator when calculating swap output and validating the route.
-
-This allows different AMM implementations with different fee structures to participate in the same routing system.
-
-Intelligent Path Discovery
-
-The quoting engine evaluates:
-
-- Direct single-hop routes.
-- Multi-hop routes.
-- Intermediate tokens configured through "commonTokens".
-- Liquidity depth.
-- Expected output.
-- Estimated price impact.
-- Factory-specific swap fees.
-
-The highest-scoring valid route is returned to the caller.
-
-Liquidity Scoring Engine
-
-Candidate routes are evaluated using a composite scoring mechanism incorporating expected output, liquidity characteristics, and price-impact penalties.
-
-This allows the router to compare multiple pools instead of selecting a route solely based on pool existence.
-
-Price Impact Filtering
-
-Routes exceeding the configured maximum price-impact threshold can be rejected during route evaluation.
-
-This provides an additional protection layer against execution through severely illiquid pools.
-
-Deterministic Route Encoding
-
-Routing instructions are encoded into a compact binary representation.
-
-[version: 1 byte]
-[hopCount: 1 byte]
-[RouteHop × N]
-
-Each "RouteHop" occupies 64 bytes:
-
-pool              20 bytes
-tokenOut          20 bytes
-v2FeeNumerator     2 bytes
-v2FeeDenominator   2 bytes
-factory            20 bytes
-
-Total:
-
-64 bytes per hop
-
-The encoded route returned by "quoteExactInput" can subsequently be supplied to "swapExactInput".
-
-Native BNB Handling
-
-The router supports native BNB as an input or output asset.
-
-Internally, native BNB is represented through the configured wrapped-native token during AMM interaction.
-
-The path encoding uses the wrapped-native address rather than "address(0)".
-
-Protocol Fee Split
-
-The router supports a configurable protocol fee taken from the input amount.
-
-The fee mechanism can distribute the configured protocol fee between:
-
-- Protocol treasury.
-- Integrating partner.
-
-Circuit Breaker
-
-An owner-controlled circuit breaker can halt swap activity in emergency situations.
+> **Testing Interface:** This frontend is provided as a testing and integration interface for the deployed "OrvixAggregator" contract. Always verify the selected network and transaction parameters before signing a transaction.
 
 ---
 
-Mainnet Liquidity Sources
+## What You Can Test
 
-The current Mainnet configuration includes seven AMM V2 factory sources:
-
-PancakeSwap V2
-BiSwap
-ApeSwap
-SushiSwap
-MDEX
-BabySwap
-BakerySwap
-
-This multi-source architecture allows "OrvixAggregator" to search for liquidity across different AMM ecosystems before selecting an execution route.
-
----
-
-Workflow
-
-1. Quote
-
-The integration calls:
-
-quoteExactInput(
-    tokenIn,
-    tokenOut,
-    amountIn,
-    factories,
-    slippageBps
-)
-
-The quoting engine evaluates available liquidity across the selected factories.
-
-The process includes:
-
-1. Factory validation.
-2. Pool discovery.
-3. Direct-route evaluation.
-4. Multi-hop route evaluation.
-5. Factory-specific fee calculation.
-6. Liquidity assessment.
-7. Price-impact estimation.
-8. Route scoring.
-9. Best-route selection.
-10. Binary path encoding.
-
-The result contains the expected output and encoded route required for execution.
-
-2. Execute
-
-The integration supplies the returned route to:
-
-swapExactInput(
-    tokenIn,
-    tokenOut,
-    amountIn,
-    amountOutMin,
-    recipient,
-    deadline,
-    path,
-    treasury,
-    integrator
-)
-
-The contract then:
-
-1. Validates the encoded route.
-2. Validates hop continuity.
-3. Validates factory whitelist status.
-4. Validates pool existence.
-5. Calculates and deducts protocol fees.
-6. Handles native BNB/WBNB conversion.
-7. Executes swaps hop-by-hop.
-8. Validates final output against "amountOutMin".
-9. Transfers or unwraps the final asset as required.
+- Wallet connection
+- Token pair selection
+- Aggregator quote requests
+- Multi-factory route discovery
+- Direct and multi-hop routing
+- Expected output calculation
+- Slippage protection
+- Encoded route execution
+- Native BNB / WBNB handling
+- On-chain swap execution
+- Transaction confirmation
 
 ---
 
-Contract Interface
+## Test Flow
 
-User Functions
+```
 
-"quoteExactInput"
+Connect Wallet
+↓
+Select Input / Output Token
+↓
+Enter Amount
+↓
+Request Aggregator Quote
+↓
+Route Discovery
+↓
+Select Best Available Route
+↓
+Approve Token
+↓
+Execute swapExactInput()
+↓
+Verify On-Chain Result
 
-quoteExactInput(
-    address tokenIn,
-    address tokenOut,
-    uint256 amountIn,
-    address[] calldata factories,
-    uint256 slippageBps
-)
-
-Returns the optimal route, expected output, and encoded path.
-
-Use "address(0)" to represent native BNB where supported by the interface.
-
-"swapExactInput"
-
-swapExactInput(
-    address tokenIn,
-    address tokenOut,
-    uint256 amountIn,
-    uint256 amountOutMin,
-    address recipient,
-    uint256 deadline,
-    bytes calldata path,
-    address treasury,
-    address integrator
-)
-
-Executes the previously quoted route.
+```
 
 ---
 
-Diagnostic Functions
+## Testnet USST Faucet
 
-"assessPools"
+For testing swaps without requiring real assets, Orvix provides a test USST token on BNB Chain Testnet.
 
-assessPools(
-    address tokenIn,
-    address tokenOut,
-    uint256 amountIn,
-    address[] calldata factories,
-    bool rawMode
-)
+**USST Contract**  
+0x0b826aFC12380Cd138ED9e7211631033fa51716F
 
-Evaluates candidate pools and returns diagnostic information including output estimates, liquidity metrics, scores, and failure reasons.
+**Token metadata:**
 
-"maxInputForPool"
-
-maxInputForPool(
-    address tokenIn,
-    address tokenOut,
-    address[] calldata factories,
-    uint256 targetImpactBps
-)
-
-Calculates the maximum input amount that can be routed while remaining within the specified price-impact threshold.
+| Property | Value |
+| :--- | :--- |
+| Name | USST Stable Faucet |
+| Symbol | USST |
+| Decimals | 18 |
+| Faucet amount | 7,000 USST |
+| Cooldown | 24 hours |
+| Network | BNB Smart Chain Testnet |
 
 ---
 
-Administrative Functions
+## How to Get USST
 
-Administrative functionality is restricted to the contract owner.
+The USST contract contains a permissionless `mint()` faucet function.
 
-Factory Management
+Any wallet can call:
 
-setFactoryStatus(address factory, bool status)
-batchSetFactoryStatus(...)
+```
 
-Controls which AMM factories are available for routing.
+mint()
 
-Factory Fee Configuration
+```
 
-setFactoryFee(
-    address factory,
-    uint16 feeNumerator,
-    uint16 feeDenominator
-)
+If the wallet has not claimed during the previous 24-hour period, the contract mints:
 
-Configures the fee parameters used for a specific factory.
+```
 
-Common Tokens
+7,000 USST
 
-setCommonTokens(address[] calldata tokens)
+```
 
-Configures intermediate tokens used during multi-hop route discovery.
+directly to the caller.
 
-Protocol Fee
+**Daily Limit**
 
-setProtocolFeeRate(uint256 newRate)
+The faucet is limited to one successful claim per address every 24 hours.
 
-Updates the protocol fee rate subject to the contract's configured maximum.
+```
 
-Circuit Breaker
+1 wallet
+↓
+7,000 USST
+↓
+24-hour cooldown
+↓
+Claim again
 
-setCircuitBreaker(bool active)
+```
 
-Activates or deactivates the emergency swap circuit breaker.
+The cooldown is tracked independently for each wallet address.
 
-Initialization
+There is no allowlist and no ownership check on the faucet claim function.
 
-initialize(address treasury)
-
-Initializes the deployment and configures the default treasury.
-
----
-
-Security & Mathematics
-
-The contract uses several mechanisms designed to make swap execution safer and mathematically consistent.
-
-SafeERC20
-
-Token transfers use OpenZeppelin "SafeERC20" to improve compatibility with ERC20 implementations that do not strictly follow the standard return-value behavior.
-
-Full-Precision Mathematics
-
-The routing and liquidity calculations use high-precision arithmetic where required to reduce overflow and rounding issues.
-
-Reentrancy Protection
-
-State-changing and swap execution paths use reentrancy protection.
-
-Slippage Protection
-
-The caller specifies "amountOutMin", ensuring that execution fails if the final received amount falls below the user's minimum acceptable output.
-
-Deadline Protection
-
-Swap execution accepts a deadline to prevent stale routes from being executed after their intended validity period.
+Bots and smart contracts are also permitted to call the faucet.
 
 ---
 
-Development
+## Faucet Functions
 
-The contract is written in:
+**`mint()`**
 
-Solidity ^0.8.34
+Claims the daily faucet allocation.
 
-Build with Foundry:
+```solidity
+function mint() external
+```
 
-forge build
+A successful call mints exactly:
 
-Run tests:
+```
+7,000 USST
+```
 
-forge test
+If the address is still within its cooldown period, the transaction reverts with:
 
-For development environments, install the required dependencies before compilation.
+```
+CooldownActive(nextMintTime)
+```
+
+canMint(address user)
+
+Checks whether an address can claim immediately.
+
+```solidity
+function canMint(address user) external view returns (bool)
+```
+
+nextMintTime(address user)
+
+Returns the earliest timestamp at which the address can claim again.
+
+```solidity
+function nextMintTime(address user) external view returns (uint256)
+```
+
+---
+
+Testnet Swap Tokens
+
+The following test tokens currently have active liquidity available for aggregator testing.
+
+Token Contract Address
+BTS "0xF504A700fe1eC44A565cd4b5a2f6c6f536b5FB98"
+QWE "0x4321afcF7642695Ea017982823c6A8a58EfC9fE2"
+PVT "0x24b20A51Fd93F1F303d93caFf353EE8ec4868ef8"
+NTC "0xC6A18484d8d9FFA64F658616a1196da8f76B7d5a"
+TRAV "0xE844E1201df67D3c4aAA5656b2296a775C9F844A"
+OPH "0x63855c836594e6BD9814b882ADFf28546d74790A"
+
+These tokens are intended for BNB Chain Testnet integration and swap testing.
+
+---
+
+Active Testnet AMM Factories
+
+The current test environment uses three AMM V2-compatible factory sources.
+
+AMM Factory Address
+PancakeSwap V2 "0x6725F303b657a9451d8BA641348b6761A6CC7a17"
+Orvix Factory "0x234aC76EAd737BddA66ce8CBB2C535B1f6F21C3a"
+DEX Factory "0xC8888677ffEDfe125C5994c11276EAf2A2b25D09"
+
+The aggregator can evaluate liquidity across these configured factories during route discovery.
+
+---
+
+Testnet Testing Setup
+
+A typical test session can be performed as follows:
+
+1. Switch wallet to BNB Chain Testnet
+2. Obtain testnet BNB for gas
+3. Claim 7,000 USST from the faucet
+4. Open the Live Swap Test Interface
+5. Connect wallet
+6. Select USST and one of the active test tokens
+7. Request a quote
+8. Review discovered route
+9. Approve token spending
+10. Execute swap
+11. Verify transaction on-chain
+
+The same flow can be used to test direct routes and, where available, multi-hop routes through the configured AMM factories.
+
+---
+
+Example Test Pair
+
+USST can be used as the primary test asset.
+
+```
+USST
+  ↓
+Aggregator
+  ↓
+PancakeSwap V2 / Orvix Factory / DEX Factory
+  ↓
+BTS / QWE / PVT / NTC / TRAV / OPH
+```
+
+The actual route selected by the aggregator depends on pool availability, liquidity, configured fees, expected output, and route scoring.
+
+---
+
+Routing Output on Vercel Interface
+
+The Vercel-hosted test interface displays routing information based on pool assessments. When a user requests a quote, the interface queries the OrvixAggregator contract to evaluate all available liquidity pools across the configured factories.
+
+The output shows:
+
+· Available pools: Lists all AMM V2 pools that contain the selected token pair, including direct pools and intermediate token pools for multi-hop routes.
+· Liquidity depth: Displays the reserve amounts in each pool, indicating the available liquidity for the swap amount.
+· Price impact: Calculates the estimated price impact based on the swap size and pool reserves.
+· Route paths: Shows the proposed route path, including intermediate tokens for multi-hop swaps.
+· Expected output: Provides the estimated output amount for each potential route.
+· Best route selection: Highlights the route that offers the highest expected output after considering fees and slippage.
+
+The interface performs these assessments by simulating swap executions across the evaluated pools and comparing the results to recommend the optimal route.
+
+---
+
+Security & Testing Notes
+
+This deployment is intended to provide a practical environment for testing aggregator routing and swap execution.
+
+Before signing a transaction:
+
+· Confirm the wallet is connected to BNB Chain Testnet when using test assets.
+· Verify the token addresses.
+· Verify the selected route.
+· Review the expected output.
+· Confirm the amountOutMin / slippage settings.
+· Verify the recipient address.
+· Never enter or expose a private key.
+· Do not assume testnet assets have monetary value.
+
+The USST faucet is specifically designed for testing and does not represent a production stablecoin.
+
+---
+
+Mainnet AMM Factories
+
+The Mainnet deployment supports multiple AMM V2 liquidity sources.
+
+AMM Factory Address
+PancakeSwap V2 "0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73"
+BiSwap "0x858E3312ed3A876947EA49d572A7C42DE08af7EE"
+ApeSwap "0x0841BD0B734E4F5853f0dD8d7Ea041c241fb0Da6"
+SushiSwap "0xc35DADB65012eC5796536bD9864eD8773aBc74C4"
+MDEX "0x3CD1C46068dAEa5Ebb0d3f55F6915B10648062B8"
+BabySwap "0x86407bEa2078ea5F5EB5A52B2caA963bC1F889DA"
+BakerySwap "0x01bF7C66c6BD861915CdaaE475042d3c4BaE16A7"
 
 ---
 
 Repository
 
 Source code:
-
 https://github.com/evmforgedev/Orvix-Aggregator
 
-The repository intentionally focuses on the standalone "OrvixAggregator.sol" implementation.
-
----
-
-Deployment Status
-
-Network| Status
-BNB Smart Chain Mainnet| Live
-BNB Smart Chain Testnet| Live
-
-Mainnet
-
-0x524a8557005ADdf838c3e267ce43b9B7EBfcCfc7
-
-Testnet
-
-0xA4Bf191D53B880cA49F1ceD0C0C840378bdDef42
+The repository contains the standalone OrvixAggregator.sol implementation and documentation for the deployed contracts and test environment.
 
 ---
 
